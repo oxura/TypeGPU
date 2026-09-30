@@ -696,6 +696,88 @@ describe(`switch statement in 'use gpu' functions`, () => {
     `);
   });
 
+  it('allows implicitly converted constant tests', () => {
+    const one = tgpu.const(d.u32, 1);
+    const fn = () => {
+      'use gpu';
+      switch (d.i32(1)) {
+        case one.$:
+          return 1;
+        default:
+          return 0;
+      }
+    };
+
+    expect(tgpu.resolve([fn])).toContain('case i32(one)');
+  });
+
+  it('allows same-type explicit conversions of constant tests', () => {
+    const one = tgpu.const(d.i32, 1);
+    const fn = () => {
+      'use gpu';
+      switch (d.i32(1)) {
+        case d.i32(one.$):
+          return 1;
+        default:
+          return 0;
+      }
+    };
+
+    expect(tgpu.resolve([fn])).toContain('case one');
+  });
+
+  it('allows nested explicit conversions of constant tests', () => {
+    const one = tgpu.const(d.u32, 1);
+    const fn = () => {
+      'use gpu';
+      switch (d.i32(1)) {
+        case d.i32(d.u32(d.i32(one.$))):
+          return 1;
+        default:
+          return 0;
+      }
+    };
+
+    expect(tgpu.resolve([fn])).toContain('case i32(u32(i32(one)))');
+  });
+
+  it('disallows implicitly converted runtime tests', () => {
+    const one = tgpu.privateVar(d.u32, 1);
+    const fn = () => {
+      'use gpu';
+      switch (d.i32(1)) {
+        case one.$:
+      }
+    };
+
+    expect(() => tgpu.resolve([fn])).toThrow('All of switch tests must be constant');
+  });
+
+  it('disallows same-type explicit conversions of runtime tests', () => {
+    const one = tgpu.privateVar(d.i32, 1);
+    const fn = () => {
+      'use gpu';
+      switch (d.i32(1)) {
+        case d.i32(one.$):
+      }
+    };
+
+    expect(() => tgpu.resolve([fn])).toThrow('All of switch tests must be constant');
+  });
+
+  it('disallows converted constants accessed with a runtime index', () => {
+    const values = tgpu.const(d.arrayOf(d.i32, 2), [1, 2]);
+    const index = tgpu.privateVar(d.u32, 0);
+    const fn = () => {
+      'use gpu';
+      switch (d.i32(1)) {
+        case d.i32(values.$[index.$]):
+      }
+    };
+
+    expect(() => tgpu.resolve([fn])).toThrow('All of switch tests must be constant');
+  });
+
   it('disallows runtime tests', () => {
     const helper = () => {
       'use gpu';

@@ -1246,7 +1246,7 @@ export class WgslGenerator implements ShaderGenerator {
       return snip(
         stitch`${args[0]}`,
         schema,
-        fallthroughCopyOrigin(args[0].origin),
+        isConstant(args[0]) ? 'constant' : 'runtime',
         args[0].possibleSideEffects,
       );
     }
@@ -1254,7 +1254,7 @@ export class WgslGenerator implements ShaderGenerator {
     return snip(
       stitch`${this.ctx.resolve(schema).value}(${args})`,
       schema,
-      args.every((arg) => arg.origin === 'constant') ? 'constant' : 'runtime',
+      args.every(isConstant) ? 'constant' : 'runtime',
       args.some((s) => s.possibleSideEffects),
     );
   }

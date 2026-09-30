@@ -8,6 +8,30 @@ const lazyV4u = tgpu.lazy(() => d.vec4u(1, 2, 3, 4).mul(numberSlot.$));
 const lazyV2f = tgpu.lazy(() => d.vec2f(1, 2).mul(numberSlot.$));
 
 describe('WgslGenerator', () => {
+  it('preserves constant origins through constructors without retaining aliases', () => {
+    const scalar = tgpu.const(d.f32, 1);
+    const vector = tgpu.const(d.vec2f, d.vec2f(1));
+    const runtime = tgpu.privateVar(d.f32, 1);
+    const fn = () => {
+      'use gpu';
+      CAPTURE(d.f32(scalar.$));
+      CAPTURE(d.i32(scalar.$));
+      CAPTURE(d.vec2f(vector.$));
+      CAPTURE(d.vec2f(scalar.$, scalar.$));
+      CAPTURE(d.vec2f(scalar.$, runtime.$));
+      CAPTURE(d.f32(runtime.$));
+    };
+
+    expect(captureSnippets(fn).map((snippet) => snippet.origin)).toEqual([
+      'constant',
+      'constant',
+      'constant',
+      'constant',
+      'runtime',
+      'runtime',
+    ]);
+  });
+
   it('creates a simple return statement', () => {
     const main = () => {
       'use gpu';
