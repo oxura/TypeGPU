@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { tgpu, d } from 'typegpu';
+import { tgpu, d, readFromArrayBuffer, writeToArrayBuffer } from 'typegpu';
 
 describe('d.size', () => {
   it('adds @size attribute for the custom sized struct members', () => {
@@ -94,5 +94,38 @@ describe('d.size', () => {
         c: d.U32;
       }>
     >();
+  });
+});
+
+describe('top-level size decorations', () => {
+  it('measures the WGSL type rather than a member reservation', () => {
+    const scalar = d.size(32, d.u32);
+    expect(d.sizeOf(scalar)).toBe(4);
+    expect(d.isContiguous(scalar)).toBe(true);
+    expect(d.memoryLayoutOf(scalar)).toEqual({ offset: 0, contiguous: 4 });
+    expect(d.memoryLayoutOf(scalar, (value) => value)).toEqual({ offset: 0, contiguous: 4 });
+    expect(d.sizeOf(d.size(32, d.vec3f))).toBe(12);
+    expect(d.sizeOf(d.size(64, d.arrayOf(d.vec3f, 2)))).toBe(32);
+    expect(d.sizeOf(d.size(64, d.struct({ value: d.size(32, d.u32) })))).toBe(32);
+  });
+
+  it('preserves member reservations and array strides', () => {
+    const schema = d.struct({ a: d.size(32, d.u32), b: d.u32 });
+    expect(d.sizeOf(schema)).toBe(36);
+    const bytes = new ArrayBuffer(36);
+    writeToArrayBuffer(bytes, schema, { a: 7, b: 9 });
+    expect(new DataView(bytes).getUint32(32, true)).toBe(9);
+    expect(readFromArrayBuffer(bytes, schema)).toEqual({ a: 7, b: 9 });
+    expect(d.sizeOf(d.vec3f)).toBe(12);
+    expect(d.sizeOf(d.arrayOf(d.vec3f, 2))).toBe(32);
+    expect(d.sizeOf(d.disarrayOf(d.size(11, d.u32), 10))).toBe(110);
+  });
+
+  it('round-trips an outer decorated scalar in its natural byte size', () => {
+    const schema = d.size(32, d.u32);
+    const bytes = new ArrayBuffer(4);
+    writeToArrayBuffer(bytes, schema, 42);
+    expect(readFromArrayBuffer(bytes, schema)).toBe(42);
+    expect([...new Uint32Array(bytes)]).toEqual([42]);
   });
 });

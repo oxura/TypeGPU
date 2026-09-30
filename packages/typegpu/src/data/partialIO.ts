@@ -5,9 +5,9 @@ import { getCompiledWriter } from './compiledIO.ts';
 import { writeData } from './dataIO.ts';
 import { isDisarray, isUnstruct } from './dataTypes.ts';
 import { offsetsForProps } from './offsets.ts';
-import { sizeOf } from './sizeOf.ts';
+import { sizeOf, sizeOfType } from './sizeOf.ts';
 import type * as wgsl from './wgslTypes.ts';
-import { isWgslArray, isWgslStruct, type BaseData } from './wgslTypes.ts';
+import { isDecorated, isWgslArray, isWgslStruct, type BaseData } from './wgslTypes.ts';
 import type { InferPatch } from '../shared/repr.ts';
 
 export interface WriteInstruction {
@@ -61,7 +61,7 @@ export function getPatchInstructions<TData extends wgsl.BaseData>(
   data: unknown,
   targetBuffer?: ArrayBuffer,
 ): WriteInstruction[] {
-  const totalSize = sizeOf(schema);
+  const totalSize = sizeOfType(schema);
   if (totalSize === 0 || data === undefined || data === null) {
     return [];
   }
@@ -134,7 +134,7 @@ export function getPatchInstructions<TData extends wgsl.BaseData>(
     segments.push({ start: offset, end: offset + leafSize, padding });
   }
 
-  collect(schema, data, 0);
+  collect(isDecorated(schema) ? schema.inner : schema, data, 0);
 
   const instructions: WriteInstruction[] = [];
   let run: Segment | null = null;

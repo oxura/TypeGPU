@@ -1,7 +1,7 @@
 import { getCompiledWriter } from '../../data/compiledIO.ts';
 import type { AnyData } from '../../data/dataTypes.ts';
 import { convertPartialToPatch, getPatchInstructions } from '../../data/partialIO.ts';
-import { sizeOf } from '../../data/sizeOf.ts';
+import { sizeOfType as sizeOf } from '../../data/sizeOf.ts';
 import type { BaseData } from '../../data/wgslTypes.ts';
 import { isWgslData } from '../../data/wgslTypes.ts';
 import type { StorageFlag } from '../../extension.ts';

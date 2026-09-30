@@ -1,7 +1,7 @@
 import { roundUp } from '../mathUtils.ts';
 import { alignmentOf } from './alignmentOf.ts';
 import { type OffsetInfo as PropOffsetInfo, offsetsForProps } from './offsets.ts';
-import { sizeOf } from './sizeOf.ts';
+import { sizeOf, sizeOfType } from './sizeOf.ts';
 import { isContiguous } from './isContiguous.ts';
 import { getLongestContiguousPrefix } from './getLongestContiguousPrefix.ts';
 import type { AnyWgslData, BaseData, VecData, WgslArray, WgslStruct } from './wgslTypes.ts';
@@ -62,7 +62,7 @@ function makeProxy(schema: AnyWgslData, baseOffset: number, contiguous = sizeOf(
 }
 
 export function createOffsetProxy<T extends BaseData>(schema: T, baseOffset = 0): unknown {
-  return makeProxy(schema as AnyWgslData, baseOffset, sizeOf(schema));
+  return makeProxy(schema as AnyWgslData, baseOffset, sizeOfType(schema));
 }
 
 function makeVecProxy(
@@ -248,14 +248,14 @@ function getRootContiguous(schema: AnyWgslData): number {
     const elementType = unwrapped.elementType as AnyWgslData;
     const elementSize = sizeOf(elementType);
     const stride = roundUp(elementSize, alignmentOf(elementType));
-    const totalSize = sizeOf(schema);
+    const totalSize = sizeOfType(schema);
     if (!Number.isFinite(totalSize)) {
       return elementSize;
     }
     return stride > elementSize ? elementSize : totalSize;
   }
 
-  return sizeOf(schema);
+  return sizeOfType(schema);
 }
 
 /**

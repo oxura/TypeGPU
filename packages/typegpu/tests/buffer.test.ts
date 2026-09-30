@@ -29,6 +29,63 @@ function toUint8Array(...arrays: Array<ArrayBufferView>): Uint8Array {
 }
 
 describe('TgpuBuffer', () => {
+  it('allocates and writes an outer decorated type at its natural size', ({ root, device }) => {
+    const buffer = root.createBuffer(d.size(5, d.u32));
+    buffer.write(42);
+    const rawBuffer = root.unwrap(buffer);
+    expect(device.mock.createBuffer).toHaveBeenCalledWith(expect.objectContaining({ size: 4 }));
+    expect(device.mock.queue.writeBuffer.mock.calls).toStrictEqual([
+      [rawBuffer, 0, new Uint32Array([42]).buffer, 0, 4],
+    ]);
+  });
+
+  it('patches an outer decorated type without writing its member padding', ({ root, device }) => {
+    const buffer = root.createBuffer(d.size(32, d.u32));
+    buffer.patch(42);
+    expect(device.mock.queue.writeBuffer.mock.calls[0]?.[2].byteLength).toBe(4);
+  });
+
+  it('round-trips an outer decorated type through a mapped buffer', async ({ root }) => {
+    const schema = d.size(32, d.u32);
+    const bytes = new ArrayBuffer(4);
+    const rawBuffer = root.device.createBuffer({
+      size: 4,
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+      mappedAtCreation: true,
+    });
+    vi.mocked(rawBuffer.getMappedRange).mockReturnValue(bytes);
+    const buffer = root.createBuffer(schema, rawBuffer);
+    buffer.write(42);
+    expect(await buffer.read()).toBe(42);
+    buffer.patch(7);
+    expect(await buffer.read()).toBe(7);
+    expect([...new Uint32Array(bytes)]).toEqual([7]);
+  });
+
+  it('copies only the natural type size during decorated buffer readback', async ({
+    root,
+    commandEncoder,
+  }) => {
+    const buffer = root.createBuffer(d.size(32, d.u32));
+    await buffer.read();
+    expect(commandEncoder.mock.copyBufferToBuffer).toHaveBeenCalledWith(
+      root.unwrap(buffer),
+      0,
+      expect.anything(),
+      0,
+      4,
+    );
+  });
+
+  it('uploads only supplied elements of an outer decorated array', ({ root, device }) => {
+    const buffer = root.createBuffer(d.size(32, d.arrayOf(d.u32, 4)));
+    buffer.write([42]);
+    const rawBuffer = root.unwrap(buffer);
+    expect(device.mock.queue.writeBuffer.mock.calls).toStrictEqual([
+      [rawBuffer, 0, new Uint32Array([42, 0, 0, 0]).buffer, 0, 4],
+    ]);
+  });
+
   it('should be namable', ({ root }) => {
     const buffer = root.createBuffer(d.u32).$name('myBuffer');
 

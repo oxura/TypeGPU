@@ -44,7 +44,15 @@ describe('d.isContiguous', () => {
 
   it('decorated', () => {
     expect(d.isContiguous(d.size(4, d.u32))).toBe(true);
-    expect(d.isContiguous(d.size(16, d.u32))).toBe(false);
+    // WGSL layout attributes reserve member space, not standalone type space.
+    const scalar = d.size(16, d.u32);
+    expect(d.sizeOf(scalar)).toBe(4);
+    expect(d.isContiguous(scalar)).toBe(true);
+    expect(d.isContiguous(d.struct({ value: scalar }))).toBe(false);
+
+    const loose = d.size(16, d.unstruct({ x: d.u32 }));
+    expect(d.sizeOf(loose)).toBe(16);
+    expect(d.isContiguous(loose)).toBe(false);
     expect(d.isContiguous(d.size(64, d.mat3x3f))).toBe(false);
     expect(d.isContiguous(d.align(16, d.vec3f))).toBe(true);
     expect(d.isContiguous(d.location(1, d.u32))).toBe(true);

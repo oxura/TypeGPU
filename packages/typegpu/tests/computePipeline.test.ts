@@ -645,6 +645,16 @@ describe('TgpuComputePipeline', () => {
       }),
     });
 
+    it('does not count outer member reservations toward indirect buffer size', ({ root }) => {
+      const buffer = root.createBuffer(d.size(32, d.u32)).$usage('indirect');
+      const entryFn = tgpu.computeFn({ workgroupSize: [1] })(() => {});
+      const pipeline = root.createComputePipeline({ compute: entryFn });
+
+      expect(() => pipeline.dispatchWorkgroupsIndirect(buffer)).toThrow(
+        'Buffer too small for dispatchWorkgroupsIndirect. Required: 12 bytes at offset 0, but buffer is only 4 bytes.',
+      );
+    });
+
     it('accepts raw GPUBuffer with indirect flag', ({ root, device }) => {
       const buffer = device.createBuffer({ size: 16, usage: GPUBufferUsage.INDIRECT });
 

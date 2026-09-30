@@ -1,5 +1,5 @@
 import type { AnyData } from './dataTypes.ts';
-import type { BaseData } from './wgslTypes.ts';
+import { isDecorated, type BaseData } from './wgslTypes.ts';
 import { getLayoutInfo } from './schemaMemoryLayout.ts';
 
 export function isContiguous(schema: BaseData): boolean {
@@ -10,5 +10,5 @@ export function isContiguous(schema: BaseData): boolean {
  * Returns `true` if data represented by the `schema` doesn't have padding.
  */
 export function PUBLIC_isContiguous(schema: AnyData): boolean {
-  return isContiguous(schema);
+  return isContiguous(isDecorated(schema) ? schema.inner : schema);
 }

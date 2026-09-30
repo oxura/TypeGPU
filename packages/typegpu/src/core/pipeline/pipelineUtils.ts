@@ -1,6 +1,6 @@
 import type { IndirectFlag, TgpuBuffer } from '../buffer/buffer.ts';
 import { memoryLayoutOf, type PrimitiveOffsetInfo } from '../../data/offsetUtils.ts';
-import { sizeOf } from '../../data/sizeOf.ts';
+import { sizeOfType } from '../../data/sizeOf.ts';
 import type { BaseData } from '../../data/wgslTypes.ts';
 import type { TgpuBindGroup, TgpuBindGroupLayout } from '../../tgpuBindGroupLayout.ts';
 import type { TgpuVertexLayout } from '../vertexLayout/vertexLayout.ts';
@@ -94,7 +94,7 @@ export function resolveIndirectOffset(
 
   const { offset, contiguous } = offsetInfo;
 
-  validateIndirectBufferSize(sizeOf(indirectBuffer.dataType), offset, requiredSize, operation);
+  validateIndirectBufferSize(sizeOfType(indirectBuffer.dataType), offset, requiredSize, operation);
 
   if (contiguous < requiredSize) {
     logger.warn(

@@ -10,7 +10,7 @@ import alignIO from './alignIO.ts';
 import { alignmentOf, customAlignmentOf } from './alignmentOf.ts';
 import type { AnyConcreteData, AnyData, Disarray, LooseDecorated, Unstruct } from './dataTypes.ts';
 import { mat2x2f, mat3x3f, mat4x4f } from './matrix.ts';
-import { sizeOf } from './sizeOf.ts';
+import { sizeOf, sizeOfType } from './sizeOf.ts';
 import {
   vec2f,
   vec2h,
@@ -26,7 +26,7 @@ import {
   vec4u,
 } from './vector.ts';
 import type * as wgsl from './wgslTypes.ts';
-import { isWgslArray, type BaseData } from './wgslTypes.ts';
+import { isDecorated, isWgslArray, type BaseData } from './wgslTypes.ts';
 import type { BufferWriteOptions } from '../core/buffer/buffer.ts';
 import { getCompiledWriter } from './compiledIO.ts';
 import { getName } from '../shared/meta.ts';
@@ -805,13 +805,15 @@ export function calculateOffsets<T extends BaseData>(
   schema: T,
   data: InferInput<T> | ArrayBuffer | ArrayBufferView,
 ): { startOffset: number; endOffset: number } {
-  const bufferSize = sizeOf(schema);
+  const rootSchema = isDecorated(schema) ? schema.inner : schema;
+  const bufferSize = sizeOfType(rootSchema);
   const startOffset = options?.startOffset ?? 0;
   let naturalSize: number | undefined = undefined;
-  if (isWgslArray(schema) && Array.isArray(data)) {
+  if (isWgslArray(rootSchema) && Array.isArray(data)) {
     const arrayData = data as unknown[];
     naturalSize =
-      arrayData.length * roundUp(sizeOf(schema.elementType), alignmentOf(schema.elementType));
+      arrayData.length *
+      roundUp(sizeOf(rootSchema.elementType), alignmentOf(rootSchema.elementType));
   } else if (ArrayBuffer.isView(data) || data instanceof ArrayBuffer) {
     naturalSize = data.byteLength;
   }
@@ -828,7 +830,12 @@ export function writeToArrayBuffer<T extends BaseData>(
   schema: T,
   data: InferInput<T> | ArrayBuffer | ArrayBufferView,
   options?: BufferWriteOptions,
-) {
+): void {
+  // Layout attributes describe members, not the root value being serialized.
+  if (isDecorated(schema)) {
+    return writeToArrayBuffer(buffer, schema.inner, data, options);
+  }
+
   const { startOffset, endOffset } = calculateOffsets(options, schema, data);
 
   // Fast path: raw byte copy, user guarantees the padded layout
@@ -876,5 +883,8 @@ export function writeToArrayBuffer<T extends BaseData>(
 }
 
 export function readFromArrayBuffer<T extends BaseData>(buffer: ArrayBuffer, schema: T): Infer<T> {
-  return readData(new BufferReader(buffer), schema);
+  return readData(
+    new BufferReader(buffer),
+    isDecorated(schema) ? schema.inner : schema,
+  ) as Infer<T>;
 }
