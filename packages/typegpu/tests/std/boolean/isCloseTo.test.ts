@@ -92,10 +92,68 @@ describe('isCloseTo', () => {
       }
 
       fn main() -> bool {
-        return all(abs(modify1() - modify2()) <= vec2f(0.01f));
+        return all((abs(modify1() - modify2()) <= vec2f(0.01f)));
       }"
     `);
     expect(code.match(/modify1/g)?.length).toBe(1 /* decl */ + 1 /* call */);
     expect(code.match(/modify2/g)?.length).toBe(1 /* decl */ + 1 /* call */);
+  });
+});
+
+describe.each([
+  [d.f32, 'abs(lhs - rhs)', false],
+  [d.f16, 'abs(f32(lhs) - f32(rhs))', false],
+  [d.i32, 'abs(f32(lhs) - f32(rhs))', false],
+  [d.u32, 'abs(f32(lhs) - f32(rhs))', false],
+  [d.vec2f, 'abs(lhs - rhs)', true],
+  [d.vec3f, 'abs(lhs - rhs)', true],
+  [d.vec4f, 'abs(lhs - rhs)', true],
+  [d.vec2h, 'abs(lhs - rhs)', true],
+  [d.vec3h, 'abs(lhs - rhs)', true],
+  [d.vec4h, 'abs(lhs - rhs)', true],
+] as const)('WGSL isCloseTo for %s', (schema, difference, isVector) => {
+  const comparison = (precision: string) =>
+    isVector
+      ? `all((${difference} <= ${schema.type}(${precision})))`
+      : `(${difference} <= ${precision})`;
+
+  it('uses the default precision', () => {
+    const compare = tgpu.fn([schema, schema], d.bool)((lhs, rhs) => isCloseTo(lhs, rhs));
+
+    expect(tgpu.resolve([compare])).toContain(`return ${comparison('0.01f')};`);
+  });
+
+  it('uses an explicit precision', () => {
+    const compare = tgpu.fn([schema, schema], d.bool)((lhs, rhs) => isCloseTo(lhs, rhs, 0.1));
+
+    expect(tgpu.resolve([compare])).toContain(
+      `return ${comparison(isVector ? '0.1' : 'f32(0.1)')};`,
+    );
+  });
+
+  it.each([-1, 0, 1])('uses an integer precision literal (%s)', (precision) => {
+    const compare = tgpu.fn([schema, schema], d.bool)((lhs, rhs) => isCloseTo(lhs, rhs, precision));
+    const tolerance = isVector ? `${precision}` : `f32(${precision})`;
+
+    expect(tgpu.resolve([compare])).toContain(`return ${comparison(tolerance)};`);
+  });
+
+  it.each([d.i32, d.u32])('uses a runtime %s precision', (precisionSchema) => {
+    const compare = tgpu.fn(
+      [schema, schema, precisionSchema],
+      d.bool,
+    )((lhs, rhs, tolerance) => isCloseTo(lhs, rhs, tolerance));
+    const tolerance = isVector ? 'tolerance' : 'f32(tolerance)';
+
+    expect(tgpu.resolve([compare])).toContain(`return ${comparison(tolerance)};`);
+  });
+
+  it('uses a runtime precision', () => {
+    const compare = tgpu.fn(
+      [schema, schema, d.f32],
+      d.bool,
+    )((lhs, rhs, tolerance) => isCloseTo(lhs, rhs, tolerance));
+
+    expect(tgpu.resolve([compare])).toContain(`return ${comparison('tolerance')};`);
   });
 });

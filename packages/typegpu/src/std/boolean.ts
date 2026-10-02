@@ -50,7 +50,6 @@ import {
 import { SignatureNotSupportedError, WgslTypeError } from '../errors.ts';
 import { unify } from '../tgsl/conversion.ts';
 import { cpuCopy } from './copy.ts';
-import { coerceToSnippet } from '../tgsl/generationHelpers.ts';
 
 function correspondingBooleanVectorSchema(dataType: BaseData) {
   if (dataType.type.includes('2')) {
@@ -349,12 +348,21 @@ export const isCloseTo = dualImpl({
     return typeof componentResult === 'boolean' ? componentResult : all(componentResult);
   },
   // GPU implementation
-  codegenImpl: (_ctx, [lhs, rhs, precision = snip(0.01, f32, /* origin */ 'constant', false)]) => {
+  codegenImpl: (ctx, [lhs, rhs, precision = snip(0.01, f32, /* origin */ 'constant', false)]) => {
     if (isSnippetNumeric(lhs) && isSnippetNumeric(rhs)) {
-      return stitch`(abs(f32(${lhs}) - f32(${rhs})) <= ${precision})`;
+      const tolerance = ctx.gen.typeInstantiation(f32, [precision]);
+      return stitch`(abs(${ctx.gen.typeInstantiation(f32, [lhs])} - ${ctx.gen.typeInstantiation(f32, [rhs])}) <= ${tolerance})`;
     }
     if (!isSnippetNumeric(lhs) && !isSnippetNumeric(rhs)) {
-      return stitch`all(abs(${lhs} - ${rhs}) <= ${_ctx.gen.typeInstantiation(lhs.dataType as BaseData, [coerceToSnippet(precision)])})`;
+      const dataType = lhs.dataType as BaseData;
+      const difference = snip(
+        stitch`abs(${lhs} - ${rhs})`,
+        dataType,
+        /* origin */ 'runtime',
+        lhs.possibleSideEffects || rhs.possibleSideEffects,
+      );
+      const tolerance = ctx.gen.typeInstantiation(dataType, [precision]);
+      return stitch`all(${ctx.gen.emitBinaryOp(difference, '<=', tolerance)})`;
     }
     return 'false';
   },
