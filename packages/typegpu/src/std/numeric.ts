@@ -380,7 +380,44 @@ export const degrees = dualImpl<typeof cpuDegrees>({
   sideEffects: false,
 });
 
-export const determinant = dualImpl<(value: AnyMatInstance) => number>({
+function cpuDeterminant(value: AnyMatInstance): number {
+  assertKind(value, matrixKind);
+  switch (value.kind) {
+    case 'mat2x2f': {
+      const [a, b] = value.columns;
+      return a.x * b.y - a.y * b.x;
+    }
+    case 'mat3x3f': {
+      const [a, b, c] = value.columns;
+      return (
+        a.x * (b.y * c.z - b.z * c.y) -
+        a.y * (b.x * c.z - b.z * c.x) +
+        a.z * (b.x * c.y - b.y * c.x)
+      );
+    }
+    case 'mat4x4f': {
+      const [a, b, c, d] = value.columns;
+      // Pair the 2-by-2 minors of the first and last two columns.
+      const ab01 = a.x * b.y - a.y * b.x;
+      const ab02 = a.x * b.z - a.z * b.x;
+      const ab03 = a.x * b.w - a.w * b.x;
+      const ab12 = a.y * b.z - a.z * b.y;
+      const ab13 = a.y * b.w - a.w * b.y;
+      const ab23 = a.z * b.w - a.w * b.z;
+      const cd01 = c.x * d.y - c.y * d.x;
+      const cd02 = c.x * d.z - c.z * d.x;
+      const cd03 = c.x * d.w - c.w * d.x;
+      const cd12 = c.y * d.z - c.z * d.y;
+      const cd13 = c.y * d.w - c.w * d.y;
+      const cd23 = c.z * d.w - c.w * d.z;
+      return ab01 * cd23 - ab02 * cd13 + ab03 * cd12 + ab12 * cd03 - ab13 * cd02 + ab23 * cd01;
+    }
+    default:
+      return assertExhaustive(value, 'std/numeric.ts#cpuDeterminant');
+  }
+}
+
+export const determinant = dualImpl({
   name: 'determinant',
   signature: (arg) => {
     if (!(arg.type === 'mat2x2f' || arg.type === 'mat3x3f' || arg.type === 'mat4x4f')) {
@@ -388,8 +425,7 @@ export const determinant = dualImpl<(value: AnyMatInstance) => number>({
     }
     return { argTypes: [arg], returnType: f32 };
   },
-  normalImpl:
-    'CPU implementation for determinant not implemented yet. Please submit an issue at https://github.com/software-mansion/TypeGPU/issues',
+  normalImpl: cpuDeterminant,
   codegenImpl: (_ctx, [value]) => stitch`determinant(${value})`,
   sideEffects: false,
 });
