@@ -81,6 +81,10 @@ The meaning of `const` differs between JS and WGSL.
 In JS, a `const` is a reference that cannot be reassigned, while in WGSL, it means a value known at shader-creation time.
 Therefore, to use the WGSL `const`, TypeGPU provides `tgpu.const()`, an interface analogous to `tgpu.privateVar()` and `tgpu.workgroupVar()`, with the only difference being that the previously optional init value is now required.
 
+Numeric schema conversions preserve shader-creation-time constants. For example, if
+`one` is a `tgpu.const(d.u32, 1)`, `d.i32(one.$)` can be used as a `switch` case
+selector. Converting a runtime value does not make it a constant.
+
 ```ts twoslash
 import { tgpu, d } from 'typegpu';
 // ---cut---

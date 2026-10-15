@@ -1335,7 +1335,7 @@ The generated shader will evaluate them in declaration order.`,
     return snip(
       stitch`${this.ctx.resolve(schema).value}(${args})`,
       schema,
-      args.every((arg) => arg.origin === 'constant') ? 'constant' : 'runtime',
+      args.every(isConstant) ? 'constant' : 'runtime',
       args.some((s) => s.possibleSideEffects),
     );
   }

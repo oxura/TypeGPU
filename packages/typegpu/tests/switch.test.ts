@@ -3,6 +3,36 @@ import { tgpu, d } from 'typegpu';
 import { CAPTURE, captureSnippets, it } from 'typegpu-testing-utility';
 
 describe(`switch statement in 'use gpu' functions`, () => {
+  it('preserves constant selectors through implicit and explicit conversions', () => {
+    const unsigned = tgpu.const(d.u32, 1);
+    const signed = tgpu.const(d.i32, 2);
+    const third = tgpu.const(d.u32, 3);
+    const fn = tgpu.fn(
+      [d.i32],
+      d.u32,
+    )((value) => {
+      'use gpu';
+      switch (value) {
+        case unsigned.$:
+          return 10;
+        case d.i32(signed.$):
+          return 20;
+        case d.i32(third.$):
+          return 30;
+        default:
+          return 40;
+      }
+    });
+
+    const wgsl = tgpu.resolve([fn]);
+    expect(wgsl).toContain('case i32(unsigned)');
+    expect(wgsl).toContain('case signed');
+    expect(fn(1)).toBe(10);
+    expect(fn(2)).toBe(20);
+    expect(fn(3)).toBe(30);
+    expect(fn(4)).toBe(40);
+  });
+
   it('allows switch statements', () => {
     const fn = () => {
       'use gpu';

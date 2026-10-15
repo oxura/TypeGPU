@@ -39,14 +39,11 @@ export type Origin =
  * e.g. `vec3f(vec3f(0, 1, 2))`
  */
 export function fallthroughCopyOrigin(origin: Origin): Origin {
-  if (
-    origin === 'runtime' || // runtime values stay runtime
-    origin === 'constant' // constant values stay constant
-  ) {
-    // The origin is kept as-is
-    return origin;
+  if (origin === 'constant' || origin === 'constant-immutable-def') {
+    // Copying a constant reference produces an ephemeral constant, not a runtime value.
+    return 'constant';
   }
-  // All other origins become runtime
+  // Other references lose their address-space origin when copied.
   return 'runtime';
 }
 
