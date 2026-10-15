@@ -2,6 +2,14 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import { tgpu, d } from 'typegpu';
 
 describe('d.size', () => {
+  it('ignores member size attributes outside a struct member', () => {
+    expect(d.sizeOf(d.size(32, d.u32))).toBe(4);
+    expect(d.sizeOf(d.size(32, d.arrayOf(d.u32, 2)))).toBe(8);
+    const schema = d.struct({ first: d.size(16, d.u32), last: d.u32 });
+    expect(d.sizeOf(d.size(64, schema))).toBe(20);
+    expect(d.sizeOf(schema)).toBe(20);
+  });
+
   it('adds @size attribute for the custom sized struct members', () => {
     const s1 = d.struct({
       a: d.u32,

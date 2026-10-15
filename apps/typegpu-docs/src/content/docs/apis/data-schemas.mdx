@@ -342,6 +342,10 @@ d.alignmentOf(Circle) // 16
 Struct schemas adjust the padding and alignment automatically, so that they comply with WebGPU's memory alignment rules.
 It is also possible to override default byte alignment and size for particular fields via the `d.align` and `d.size` functions.
 
+`d.sizeOf` measures the type itself: `d.sizeOf(d.size(32, d.u32))` is `4`, because
+WGSL's `@size` applies only to struct members. Measuring a struct still includes
+the sizes specified on its members.
+
 ```ts twoslash
 import { d } from 'typegpu';
 // ---cut---
