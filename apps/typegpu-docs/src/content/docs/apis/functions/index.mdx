@@ -383,6 +383,11 @@ const neighborhood = tgpu.fn([d.f32, d.f32], d.vec2f)`(a, r) {
 }`;
 ```
 
+Struct names in an explicit WGSL header are matched to the shell's schemas,
+including structs nested inside `array<...>` and `ptr<...>` types. Their
+declarations and references are resolved automatically. Structs used only in the
+function body still need to be supplied through `$uses`.
+
 
 :::tip
 If you're using Visual Studio Code, you can use [this extension](https://marketplace.visualstudio.com/items?itemName=ggsimm.wgsl-literal) that brings syntax highlighting to code fragments marked with `/* wgsl */` comments.

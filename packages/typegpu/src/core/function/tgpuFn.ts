@@ -52,6 +52,8 @@ type TgpuFnShellHeader<Args extends BaseData[], Return extends BaseData> = {
  * Describes a function signature (its arguments and return type).
  * Allows creating tgpu functions by calling this shell
  * and passing the implementation (as WGSL string or JS function) as the argument.
+ * Struct names in raw WGSL signatures are inferred from the shell, including
+ * structs nested inside arrays and pointers.
  */
 export type TgpuFnShell<Args extends BaseData[], Return extends BaseData> = TgpuFnShellHeader<
   Args,

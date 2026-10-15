@@ -282,27 +282,37 @@ struct fragment_Output {
     `);
   });
 
-  // TODO: handle nested structs
-  // it('adds return type nested struct definitions when resolving wgsl-defined functions', () => {
-  //   const Point = d.struct({ a: d.u32 }).$name('P');
+  it('infers struct aliases nested in arrays without explicit externals', () => {
+    const Point = d.struct({ value: d.u32 }).$name('Point');
+    const lookup = tgpu.fn(
+      [d.arrayOf(d.arrayOf(Point, 2), 3), Point],
+      d.u32,
+    )(
+      `(items: array<array<InputPoint, 2>, 3>, fallback: OtherPoint) -> u32 {
+        return items[0][1].value + fallback.value;
+      }`,
+    );
+    const wgsl = tgpu.resolve([lookup]);
+    expect(wgsl).toContain('items: array<array<Point,2>,3>');
+    expect(wgsl).toContain('fallback: Point');
+    expect(wgsl).toContain('return items[0][1].value + fallback.value;');
+  });
 
-  //   const func = tgpu
-  //     .fn([d.arrayOf(Point, 4)])(/* wgsl */ `(a: array<MyPoint, 4>) {
-  //       return;
-  //     }`)
-  //     .$name('f');
-
-  //   expect(parseResolved({ func })).toBe(
-  //     parse(`
-  //   struct P {
-  //     a: u32,
-  //   }
-
-  //   fn f(a: array<P, 4>) {
-  //     return;
-  //   }`),
-  //   );
-  // });
+  it('infers struct aliases in pointer arguments and array returns', () => {
+    const Point = d.struct({ value: d.u32 }).$name('Point');
+    const duplicate = tgpu.fn(
+      [d.ptrFn(Point)],
+      d.arrayOf(Point, 2),
+    )(
+      `(point: ptr<function, InputPoint>) -> array<OutputPoint, 2> {
+        return array<OutputPoint, 2>(*point, *point);
+      }`,
+    );
+    const wgsl = tgpu.resolve([duplicate]);
+    expect(wgsl).toContain('point: ptr<function,Point>');
+    expect(wgsl).toContain('-> array<Point,2>');
+    expect(wgsl).toContain('return array<Point, 2>(*point, *point);');
+  });
 
   it('resolves object externals and replaces their usages in code', () => {
     const getColor = tgpu

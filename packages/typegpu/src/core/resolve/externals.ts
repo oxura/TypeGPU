@@ -1,9 +1,10 @@
 import { isLooseData } from '../../data/dataTypes.ts';
-import { isWgslStruct } from '../../data/wgslTypes.ts';
+import { isDecorated, isPtr, isWgslArray, isWgslStruct } from '../../data/wgslTypes.ts';
 import { getName, hasTinyestMetadata, isNamable, setName } from '../../shared/meta.ts';
 import { logger } from '../../tgpuLogger.ts';
 import { isWgsl, type ResolutionCtx } from '../../types.ts';
 import type { FnExternals } from '../function/fnCore.ts';
+import { extractArgs } from '../function/extractArgs.ts';
 
 /**
  * A key-value mapping where keys represent identifiers within shader code,
@@ -35,21 +36,37 @@ export function mergeFunctionExternals(fnExternals: FnExternals): ExternalMap {
   return result;
 }
 
+/**
+ * Signature aliases name struct leaves, even inside arrays and pointers.
+ * The surrounding WGSL type syntax is preserved when replacing these aliases.
+ */
+function collectStructAliases(schema: unknown, typeName: string | undefined, aliases: ExternalMap) {
+  if (!typeName) {
+    return;
+  }
+  if (isDecorated(schema)) {
+    collectStructAliases(schema.inner, typeName, aliases);
+  } else if (isWgslStruct(schema)) {
+    aliases[typeName] = schema;
+  } else if (isWgslArray(schema)) {
+    const elementName = typeName.match(/^array<(.+?)(?:,\d+)?>$/)?.[1];
+    collectStructAliases(schema.elementType, elementName, aliases);
+  } else if (isPtr(schema)) {
+    const innerName = typeName.match(/^ptr<[^,]+,(.+?)(?:,read|,read_write)?>$/)?.[1];
+    collectStructAliases(schema.inner, innerName, aliases);
+  }
+}
+
 export function addArgTypesToExternals(
   implementation: string,
   argTypes: unknown[],
   core: { setExternals: (key: 'args', externals: ExternalMap) => void },
 ) {
-  const argTypeNames = [...implementation.matchAll(/:\s*(?<arg>.*?)\s*[,)]/g)].map(
-    (found) => found?.[1],
-  );
-
-  const args = Object.fromEntries(
-    argTypes.flatMap((argType, i) => {
-      const argTypeName = argTypeNames?.[i];
-      return isWgslStruct(argType) && argTypeName !== undefined ? [[argTypeName, argType]] : [];
-    }),
-  );
+  const signature = extractArgs(implementation);
+  const args: ExternalMap = {};
+  for (const [i, argType] of argTypes.entries()) {
+    collectStructAliases(argType, signature.args[i]?.type, args);
+  }
 
   core.setExternals('args', args);
 }
@@ -59,11 +76,11 @@ export function addReturnTypeToExternals(
   returnType: unknown,
   core: { setExternals: (key: 'out', externals: ExternalMap) => void },
 ) {
-  const matched = implementation.match(/->\s(?<output>[\w\d_]+)\s{/);
-  const outputName = matched ? matched[1]?.trim() : undefined;
-
-  if (isWgslStruct(returnType) && outputName && !/\s/g.test(outputName)) {
-    core.setExternals('out', { [outputName]: returnType });
+  const outputName = implementation.match(/->\s*([^{}]+)\s*\{/)?.[1]?.replace(/\s/g, '');
+  const output: ExternalMap = {};
+  collectStructAliases(returnType, outputName, output);
+  if (Object.keys(output).length > 0) {
+    core.setExternals('out', output);
   }
 }
 
