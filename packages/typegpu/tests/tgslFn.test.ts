@@ -627,18 +627,7 @@ describe('TGSL tgpu.fn function', () => {
       addOnes(someVec);
     };
 
-    expect(tgpu.resolve([callAddOnes])).toMatchInlineSnapshot(`
-      "fn addOnes(ptr: ptr<storage, vec3f, read_write>) {
-        (*ptr).x += 1f;
-        (*ptr).y += 1f;
-        (*ptr).z += 1f;
-      }
-
-      fn callAddOnes() {
-        var someVec = vec3f(1, 2, 3);
-        addOnes((&someVec));
-      }"
-    `);
+    expect(() => tgpu.resolve([callAddOnes])).toThrow(Error);
   });
 
   it('allows destructuring the input struct argument', () => {

@@ -1,5 +1,6 @@
 import { UnknownData } from '../data/dataTypes.ts';
 import { undecorate } from '../data/dataTypes.ts';
+import { shallowEqualSchemas } from '../data/deepEqual.ts';
 import { derefSnippet, RefOperator } from '../data/ref.ts';
 import { schemaCallWrapperGPU } from '../data/schemaCallWrapper.ts';
 import { snip, withDataType, type Snippet } from '../data/snippet.ts';
@@ -41,6 +42,19 @@ const INFINITE_RANK: ConversionRankInfo = {
 function getAutoConversionRank(src: BaseData, dest: BaseData): ConversionRankInfo {
   const trueSrc = undecorate(src);
   const trueDst = undecorate(dest);
+
+  if (trueSrc === trueDst) {
+    return { rank: 0, action: 'none' };
+  }
+
+  if (isPtr(trueSrc) && isPtr(trueDst)) {
+    if (trueSrc.addressSpace !== trueDst.addressSpace || trueSrc.access !== trueDst.access) {
+      return INFINITE_RANK;
+    }
+    return shallowEqualSchemas(trueSrc.inner, trueDst.inner)
+      ? { rank: 0, action: 'none' }
+      : INFINITE_RANK;
+  }
 
   if (trueSrc.type === trueDst.type) {
     if (trueSrc.type === 'struct' && trueSrc !== trueDst) {

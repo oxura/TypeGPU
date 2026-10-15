@@ -50,6 +50,8 @@ interface ref<T> {
  * mutable access to the underlying value.
  *
  * Conceptually, it represents a WGSL pointer.
+ * Passing a reference to a function requires a matching pointee type, address space,
+ * and access mode; implicit numeric conversions cannot change the referenced storage.
  */
 export type _ref<T> = T extends object ? T & ref<T> : ref<T>;
 

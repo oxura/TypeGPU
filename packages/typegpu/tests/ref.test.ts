@@ -3,6 +3,36 @@ import { describe, expect } from 'vitest';
 import { it } from 'typegpu-testing-utility';
 
 describe('d.ref', () => {
+  it('rejects references with an incompatible pointee type', () => {
+    const modify = tgpu.fn([d.ptrFn(d.u32)])((value) => {
+      'use gpu';
+      value.$ += 1;
+    });
+    const main = () => {
+      'use gpu';
+      const value = d.ref(d.f32(1));
+      modify(value);
+    };
+
+    expect(() => tgpu.resolve([main])).toThrow('Cannot convert');
+  });
+
+  it('preserves writes through references with compatible pointee types', () => {
+    const modify = tgpu.fn([d.ptrFn(d.u32)])((value) => {
+      'use gpu';
+      value.$ += 1;
+    });
+    const main = () => {
+      'use gpu';
+      const value = d.ref(d.u32(1));
+      modify(value);
+      return value.$;
+    };
+
+    expect(main()).toBe(2);
+    expect(tgpu.resolve([main])).toContain('modify((&value))');
+  });
+
   it('fails when using a ref as an external', () => {
     const sup = d.ref(0);
 
@@ -393,7 +423,7 @@ describe('d.ref', () => {
 
     function bad() {
       'use gpu';
-      increment(d.ref(1));
+      increment(d.ref(d.f32(1)));
     }
 
     expect(() => tgpu.resolve([bad])).toThrowErrorMatchingInlineSnapshot(`
@@ -401,9 +431,9 @@ describe('d.ref', () => {
       - <root>
       - fn*:bad
       - fn*:bad()
-      - d.ref(1): d.ref(1) has to be stored in a variable before use, since '1' is not an existing value that can be referenced.
+      - d.ref(d.f32(1)): d.ref(d.f32(1)) has to be stored in a variable before use, since 'd.f32(1)' is not an existing value that can be referenced.
       -----
-      - Try 'const ref = d.ref(1);', and use 'ref' instead.
+      - Try 'const ref = d.ref(d.f32(1));', and use 'ref' instead.
       -----]
     `);
   });

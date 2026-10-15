@@ -6,6 +6,24 @@ import { INTERNAL_createPtr } from '../../src/data/ptr.ts';
 import { d } from '../../src/index.js';
 
 describe('getBestConversion', () => {
+  it('requires compatible storage and pointee types for pointer conversions', () => {
+    const Item = d.struct({ value: d.u32 });
+    const OtherItem = d.struct({ value: d.u32 });
+    const incompatible = [
+      [d.ptrFn(d.f32), d.ptrFn(d.u32)],
+      [d.ptrPrivate(d.u32), d.ptrFn(d.u32)],
+      [d.ptrStorage(d.u32, 'read'), d.ptrStorage(d.u32, 'read-write')],
+      [d.ptrFn(d.arrayOf(Item, 2)), d.ptrFn(d.arrayOf(Item, 3))],
+      [d.ptrFn(d.arrayOf(Item, 2)), d.ptrFn(d.arrayOf(OtherItem, 2))],
+    ] as const;
+    for (const [source, target] of incompatible) {
+      expect(getBestConversion([source], [target])).toBeUndefined();
+    }
+
+    const target = d.ptrFn(d.arrayOf(Item, 2));
+    expect(getBestConversion([d.ptrFn(d.arrayOf(Item, 2))], [target])?.targetType).toBe(target);
+  });
+
   // d.ptrPrivate(d.f32)
   const ptrF32 = INTERNAL_createPtr('private', d.f32, 'read-write', /* implicit */ true);
 
